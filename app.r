@@ -8,25 +8,24 @@ data <- read_csv("data/dados_finais.csv")
 prev_mun <- read_csv("data/prev_mun.csv")
 prev_rm <- read_csv("data/prev_reg.csv")
 
+source("data_transform.r")
+
+data <- transform_data(data)
+
 #Removendo 2 outliers de ULTMENST
 data$ULTMENST[data$ULTMENST == 22518] <- NA
 data$ULTMENST[data$ULTMENST == 30448] <- NA
 
-source("data_transform.r")
-
-data <- transform_data(data)
-      
 ac_agrupadas <- c("Defeito do tubo Neural", "Microcefalia", "Cardiopatias congenitas", "Fendas Orais", "Órgãos genitais", "Defeitos de membros", "Defeitos de parede abdominal", "Sindrome de Dow")
 
 #Variáveis Contínuas
-var_num <- c('IDADEMAE', 'PESO', 'IDADEPAI', 'ULTMENST', 'taxa_de_analfabetismo'
-             , 'cobertura_bcg', 'porcentagem_da_populacao_baixa_renda', 'mortalidade'
-             , 'idhm', 'idhm_educacao', 'idhm_longevidade', 'idhm_renda', 
-             'renda_domiciliar_per_capita')
+var_num <- c('idhm', 'idhm_educacao', 'idhm_longevidade', 'idhm_renda', 'porcentagem_da_populacao_baixa_renda'
+             , 'renda_domiciliar_per_capita', 'mortalidade', 'taxa_de_analfabetismo', 'cobertura_bcg'
+             , 'IDADEMAE', 'PESO', 'IDADEPAI', 'ULTMENST')
 
 #Variáveis Categóricas ou Discretas com poucos valores
-var_cat <- c('ESCMAE', 'SEXO', 'RACACORMAE', 'ESTCIVMAE', 'QTDFILVIVO', 'QTDFILMORT'
-             , 'CONSULTAS', 'APGAR1', 'APGAR5', 'LOCNASC', 'CODOCUPMAE', 'QTDGESTANT',
+var_cat <- c('ESCMAE', 'SEXO', 'RACACORMAE', 'ESTCIVMAE', 'CONSULTAS', 'APGAR1', 'APGAR5'
+             , 'LOCNASC', 'CODOCUPMAE', 'QTDFILVIVO', 'QTDFILMORT', 'QTDGESTANT',
              'QTDPARTCES', 'QTDPARTNOR', 'GRAVIDEZ', 'PARTO', 'SEMAGESTAC', 'GESTACAO')
 
 #Tema ggplot
