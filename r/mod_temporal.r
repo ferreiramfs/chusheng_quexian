@@ -9,6 +9,7 @@ mod_temporal_server <- function(input, output, session) {
       input$nivel_geo,
       "Municipal" = "Município",
       "Regional" = "Regional de Saúde",
+      "Mesoregional" = "Mesoregião",
       "Macroregional" = "Macroregional de Saúde"
     )
     
@@ -28,28 +29,39 @@ mod_temporal_server <- function(input, output, session) {
   output$mapa_anomalia <- renderLeaflet({
     req(input$anomalia, input$ano_mapa, input$nivel_geo)
     
-    # 🔹 Dicionário com metadados de cada nível
+    #Metadados de cada nível
     niveis <- list(
       "Municipal" = list(
-        df = prev_mun,
-        shape = pr_mun,
-        join_key = c("code_muni" = "COD7"),
+        df = prevalencia_municipal,
+        shape = shape_municipal,
+        join_key_x = "CC_2",
+        join_key_y = "cod",
         col_prev = "prevalencia",
         label_col = "name_muni"
       ),
       "Regional" = list(
-        df = prev_rm,
-        shape = pr_reg,
-        join_key = c("code_health_region" = "REGIONAL"),
-        col_prev = "prev_reg",
-        label_col = "name_health_region"
+        df = prevalencia_regional,
+        shape = shape_regional,
+        join_key_x = "REGIONA",
+        join_key_y = "regional",
+        col_prev = "prevalencia",
+        label_col = "REGIONA"
+      ),
+      "Mesoregional" = list(
+        df = prevalencia_mesoregional,
+        shape = shape_mesoregional,
+        join_key_x = "meso",
+        join_key_y = "meso",
+        col_prev = "prevalencia",
+        label_col = "meso"
       ),
       "Macroregional" = list(
-        df = prev_rm,
-        shape = pr_reg,  # usa o mesmo shape do regional
-        join_key = c("code_health_region" = "REGIONAL"),
-        col_prev = "prev_macro",
-        label_col = "name_health_region"
+        df = prevalencia_macroregional,
+        shape = shape_macroregional,
+        join_key_x = "MACRO",
+        join_key_y = "macro",
+        col_prev = "prevalencia",
+        label_col = "MACRO"
       )
     )
     
@@ -62,29 +74,20 @@ mod_temporal_server <- function(input, output, session) {
     
     # 🔹 Faz o join com o shape
     dados_mapa <- nivel_info$shape %>%
-      left_join(dados, by = nivel_info$join_key)
+      mutate(across(nivel_info$join_key_x, as.character)) %>%
+      left_join(
+        dados %>% mutate(across(nivel_info$join_key_y, as.character)),
+        by = setNames(nivel_info$join_key_y, nivel_info$join_key_x)
+      )
     
     # 🔹 Extrai os campos corretos
     var_prev <- dados_mapa[[nivel_info$col_prev]]
     label_nome <- dados_mapa[[nivel_info$label_col]]
     
     #Define domínio fixo por tipo geográfico e anomalia
-    if (input$nivel_geo == "Municipal") {
-      dom_fixo <- range(
-        prev_mun$prevalencia[prev_mun$anomalia == input$anomalia],
-        na.rm = TRUE
-      )
-    } else if (input$nivel_geo == "Regional") {
-      dom_fixo <- range(
-        prev_rm$prev_reg[prev_rm$anomalia == input$anomalia],
-        na.rm = TRUE
-      )
-    } else { # Macroregional
-      dom_fixo <- range(
-        prev_rm$prev_macro[prev_rm$anomalia == input$anomalia],
-        na.rm = TRUE
-      )
-    }
+    base_dados <- get(paste0("prevalencia_", tolower(input$nivel_geo)))
+    dom_fixo <- range(base_dados$prevalencia[base_dados$anomalia == input$anomalia], 
+                      na.rm = TRUE)
     
     # Paleta com domínio fixo da anomalia selecionada
     pal <- colorNumeric(

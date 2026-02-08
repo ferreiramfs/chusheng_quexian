@@ -32,7 +32,7 @@ ui <- fluidPage(
         fluidRow(
           column(4,
                  selectInput("nivel_geo", "Nível geográfico:",
-                             choices = c("Municipal", "Regional", "Macroregional"),
+                             choices = c("Municipal", "Regional", "Mesoregional", "Macroregional"),
                              selected = "Municipal")
           ),
           column(8,
