@@ -104,62 +104,37 @@ ac_agrupadas <- c("Defeito do Tubo Neural", "Microcefalia", "Cardiopatias Congê
 
 #----------------------------------------Calculando prevalências por níveis regionais -------------------
 #Prevalências
-prevalencias_mun <- base_final %>%
-  pivot_longer(cols = all_of(ac_agrupadas),
-               names_to = "anomalia",
-               values_to = "val") %>%
-  mutate(val = as.integer(val)) %>%
-  group_by(cod, ANO_NASC, anomalia) %>%
-  summarise(
-    nascidos = n(),
-    casos = sum(val, na.rm = TRUE),
-    prevalencia = ifelse(nascidos > 0, (casos / nascidos) * 10000, NA_real_),
-    .groups = "drop"
-  )
-
-prevalencias_reg <- base_final %>%
-  pivot_longer(cols = all_of(ac_agrupadas),
-               names_to = "anomalia",
-               values_to = "val") %>%
-  mutate(val = as.integer(val)) %>%
-  group_by(regional, ANO_NASC, anomalia) %>%
-  summarise(
-    nascidos = n(),
-    casos = sum(val, na.rm = TRUE),
-    prevalencia = ifelse(nascidos > 0, (casos / nascidos) * 10000, NA_real_),
-    .groups = "drop"
-  )
-
-prevalencias_meso <- base_final %>%
-  pivot_longer(cols = all_of(ac_agrupadas),
-               names_to = "anomalia",
-               values_to = "val") %>%
-  mutate(val = as.integer(val)) %>%
-  group_by(meso, ANO_NASC, anomalia) %>%
-  summarise(
-    nascidos = n(),
-    casos = sum(val, na.rm = TRUE),
-    prevalencia = ifelse(nascidos > 0, (casos / nascidos) * 10000, NA_real_),
-    .groups = "drop"
-  )
-
-prevalencias_macro <- base_final %>%
-  pivot_longer(cols = all_of(ac_agrupadas),
-               names_to = "anomalia",
-               values_to = "val") %>%
-  mutate(val = as.integer(val)) %>%
-  group_by(macro, ANO_NASC, anomalia) %>%
-  summarise(
-    nascidos = n(),
-    casos = sum(val, na.rm = TRUE),
-    prevalencia = ifelse(nascidos > 0, (casos / nascidos) * 10000, NA_real_),
-    .groups = "drop"
-  )
-
-prevalencias_mun <- prevalencias_mun[!is.na(prevalencias_mun$cod),]
-prevalencias_reg <- prevalencias_reg[!is.na(prevalencias_reg$regional),]
-prevalencias_meso <- prevalencias_meso[!is.na(prevalencias_meso$meso),]
-prevalencias_macro <- prevalencias_macro[!is.na(prevalencias_macro$macro),]
+prev_por_nivel <- function(base, nivel){
+  out <- base %>%
+    
+    mutate(Todas = ifelse(rowSums(across(all_of(ac_agrupadas)), na.rm = TRUE) > 0, 1, 0)) %>%
+    
+    pivot_longer(
+      cols = c(all_of(ac_agrupadas), Todas),
+      names_to = "anomalia",
+      values_to = "val"
+    ) %>%
+    
+    mutate(val = as.integer(val)) %>%
+    
+    group_by({{ nivel }}, ANO_NASC, anomalia) %>%
+    
+    summarise(
+      nascidos = n(),
+      casos = sum(val, na.rm = TRUE),
+      prevalencia = ifelse(nascidos > 0, (casos / nascidos) * 10000, NA_real_),
+      .groups = "drop"
+    ) %>%
+    
+    filter(!is.na({{ nivel }}))
+  
+  return(out)
+}
+#cod, regional, meso, macro
+prevalencias_mun <- prev_por_nivel(base_final, cod)
+prevalencias_reg <- prev_por_nivel(base_final, regional)
+prevalencias_meso <- prev_por_nivel(base_final, meso)
+prevalencias_macro <- prev_por_nivel(base_final, macro)
 
 #----------------------------------------Exportando resultados -------------------
 write.csv(prevalencias_mun, "data/prevalencias/municipal.csv", row.names = FALSE)
