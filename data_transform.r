@@ -102,29 +102,23 @@ codificar_codocumae <- function(x) {
   
   categorias <- case_when(
     is.na(x) ~ NA_character_,
-    between(cod, 0, 99) ~ "0 - Militares",
+    between(cod, 0, 99) ~ "0 - Forças de Segurança",
     between(cod, 101, 199) ~ "1 - Dirigentes/Gerentes",
-    between(cod, 201, 299) ~ "2 - Profissionais Ciências/Artes",
-    between(cod, 301, 399) ~ "3 - Técnicos Nível Médio",
-    between(cod, 401, 499) ~ "4 - Trabalhadores Serviços",
-    between(cod, 501, 599) ~ "5 - Trabalhadores Comércio",
-    between(cod, 601, 699) ~ "6 - Trabalhadores Agropecuária",
-    between(cod, 701, 899) ~ "7/8 - Trabalhadores Indústria",
-    between(cod, 901, 999) ~ "9 - Trabalhadores Reparos/Manutenção",
-    TRUE ~ "10 - Outros"
+    between(cod, 201, 299) ~ "2 - Alta Qualificação",
+    between(cod, 301, 599) ~ "3/4/5 - Comércio/Serviços",
+    between(cod, 601, 699) ~ "6 - Agropecuária",
+    between(cod, 701, 999) ~ "7/8/9 -  Indústria",
+    TRUE ~ NA_character_
   )
   
   niveis_ordenados <- c(
-    "0 - Militares",
+    "0 - Forças de Segurança",
     "1 - Dirigentes/Gerentes", 
-    "2 - Profissionais Ciências/Artes",
-    "3 - Técnicos Nível Médio",
-    "4 - Trabalhadores Serviços",
-    "5 - Trabalhadores Comércio",
-    "6 - Trabalhadores Agropecuária",
-    "7/8 - Trabalhadores Indústria",
-    "9 - Trabalhadores Reparos/Manutenção",
-    "10 - Outros"
+    "2 - Alta Qualificação",
+    "3/4/5 - Comércio/Serviços",
+    "6 - Agropecuária",
+    "7/8/9 -  Indústria",
+    "10 - Não Classificado"
   )
   
   factor(categorias, levels = niveis_ordenados)
