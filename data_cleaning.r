@@ -25,9 +25,8 @@ renda_pcap <- read.csv('data/indicadores/renda_dompercap.csv', sep = ';')
 analfabetismo <- read.csv('data/indicadores/taxa_analfabetismo.csv', sep = ';')
 mortalidade <- read.csv('data/indicadores/taxa_mortalidade.csv', sep = ';')
 
-#----------------------------------------Montando base resumida -------------------
-
-# selecao de variaveis
+#Montando base resumida
+#Selecao de variaveis
 BANCORESUMIDO <-  BANCOTOTAL |> 
   select(CODMUNNASC, CODESTAB, CODMUNRES, LOCNASC, IDADEMAE, ESTCIVMAE, ESCMAE
          , CODOCUPMAE, QTDFILVIVO, QTDFILMORT,QTDGESTANT, QTDPARTCES, QTDPARTNOR
@@ -102,7 +101,7 @@ base_final <- base_final %>%
 ac_agrupadas <- c("Defeito do Tubo Neural", "Microcefalia", "Cardiopatias Congênitas"
                   , "Fendas Orais", "Órgãos Genitais", "Defeitos de Membros", "Defeitos de Parede Abdominal", "Síndrome de Down")
 
-#----------------------------------------Calculando prevalências por níveis regionais -------------------
+#Calculando prevalências por níveis regionais
 #Prevalências
 prev_por_nivel <- function(base, nivel){
   out <- base %>%
@@ -136,7 +135,7 @@ prevalencias_reg <- prev_por_nivel(base_final, regional)
 prevalencias_meso <- prev_por_nivel(base_final, meso)
 prevalencias_macro <- prev_por_nivel(base_final, macro)
 
-#----------------------------------------Exportando resultados -------------------
+#Exportando resultados
 write.csv(prevalencias_mun, "data/prevalencias/municipal.csv", row.names = FALSE)
 write.csv(prevalencias_reg, "data/prevalencias/regional.csv", row.names = FALSE)
 write.csv(prevalencias_meso, "data/prevalencias/mesoregional.csv", row.names = FALSE)
