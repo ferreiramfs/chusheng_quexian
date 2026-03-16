@@ -1,11 +1,9 @@
 library(fst)
 library(car)
-library(DHARMa)
-library(effects)
-library(statmod)
+#library(statmod)
 library(ggplot2)
 library(generalhoslem)
-library(ResourceSelection)
+#library(ResourceSelection)
 
 data <- read_fst("data/dados_comprimidos.fst")
 summary(data)
@@ -44,10 +42,6 @@ qqnorm(residuos)
 qqline(residuos)
 plot(fitted(ajuste_logito), residuos)
 
-#Gráfico de resíduos com envelopes simulados
-hnp(ajuste_logito)
-hnp_reduzido <- hnp(ajuste_logito, nsim = 20, halfnormal = TRUE)
-
 #Teste de Hosmer-Lemeshow (Qualidade do Ajuste)
 obs_modelo <- ajuste_logito$y
 pred_modelo <- fitted(ajuste_logito)
@@ -67,12 +61,12 @@ ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
   geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
 
 #Removendo o IDHM devido a multicolinearidade
-ajuste_logito2 <- update(ajuste_logito, ~ . - idhm)
+ajuste_logito2 <- update(ajuste_logito, ~ . - idhm - renda_domiciliar_per_capita)
 
-summary(ajuste_logito)
+summary(ajuste_logito2)
 
 #Multicolinearidade
-vif(ajuste_logito)
+vif(ajuste_logito2)
 
 #Resíduos quantílicos normalizados aleatorizados:
 residuos <- qresiduals(ajuste_logito)
