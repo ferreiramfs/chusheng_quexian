@@ -1,9 +1,12 @@
 library(fst)
 library(car)
+library(arm)
+library(lmtest)
 #library(statmod)
 library(ggplot2)
 library(generalhoslem)
 #library(ResourceSelection)
+
 
 data <- read_fst("data/dados_comprimidos.fst")
 summary(data)
@@ -62,6 +65,7 @@ ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
 
 #Removendo o IDHM devido a multicolinearidade
 ajuste_logito2 <- update(ajuste_logito, ~ . - idhm - renda_domiciliar_per_capita)
+rm(ajuste_logito)
 
 summary(ajuste_logito2)
 
@@ -72,17 +76,11 @@ vif(ajuste_logito2)
 residuos <- qresiduals(ajuste_logito)
 qqnorm(residuos)
 qqline(residuos)
-plot(fitted(ajuste_logito), residuos)
-
-#Gráfico de resíduos com envelopes simulados
-simulations <- simulateResiduals(ajuste_logito, n = 250)
-plot(simulationOutput = simulations)
-testResiduals(simulations)
-plotQQunif(simulations)
+plot(log1p(fitted(ajuste_logito2)), residuos)
 
 #Teste de Hosmer-Lemeshow (Qualidade do Ajuste)
-obs_modelo <- ajuste_logito$y
-pred_modelo <- fitted(ajuste_logito)
+obs_modelo <- ajuste_logito2$y
+pred_modelo <- fitted(ajuste_logito2)
 
 CH_test <- logitgof(obs_modelo, pred_modelo, g = 10)
 print(CH_test)
@@ -97,3 +95,6 @@ ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
   geom_point(size = 2)+
   theme_bw(base_size = 14)+
   geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
+
+#Pontos Influentes/Outliers
+influenceIndexPlot(ajuste_logito2, vars = c('Studentized','Cook','Hat'), id.n = 3, cex = 1.4)
