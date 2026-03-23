@@ -22,7 +22,7 @@ codificar_locnasc <- function(x) {
 codificar_estciv <- function(x) {
   factor(x,
          levels = c(1, 2, 3, 4, 5, 9),
-         labels = c("solteira", "Casada", "Viúva", "Separada jud.", "União estável", "Ignorada")
+         labels = c("Solteira", "Casada", "Viúva", "Separada jud.", "União estável", "Ignorada")
   )
 }
 

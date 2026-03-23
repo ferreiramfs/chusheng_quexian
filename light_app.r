@@ -15,7 +15,7 @@ library(spdep)
 shape_municipal    <- readRDS("light_data/municipal.rds")
 shape_regional     <- readRDS("light_data/regional.rds")
 shape_mesoregional <- readRDS("light_data/meso.rds")
-# shape_macroregional <- readRDS("light_data/macro.rds")
+shape_macroregional <- readRDS("light_data/macro.rds")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Dados pré-processados (deploy leve — sem a base completa)

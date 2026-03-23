@@ -16,7 +16,7 @@ summary(data)
 data$ANO_NASC <- format(data$DTNASC, "%Y")
 
 variaveis_explicativas <- c('LOCNASC', 'IDADEMAE', 'ESTCIVMAE', 'ESCMAE', 'QTDGESTANT', 'GRAVIDEZ',
-                            'PARTO', 'CONSULTAS', 'SEXO', 'APGAR1', 'APGAR5', 'RACACORMAE', 'PESO', 'SEMAGESTAC')
+                            'PARTO', 'CONSULTAS', 'SEXO', 'RACACORMAE', 'PESO', 'SEMAGESTAC')
 
 indicadores <- c('idhm', 'idhm_educacao', 'idhm_longevidade', 'idhm_renda', 'porcentagem_da_populacao_baixa_renda', 
                  'cobertura_bcg', 'mortalidade', 'renda_domiciliar_per_capita', 'taxa_de_analfabetismo')
