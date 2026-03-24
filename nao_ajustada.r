@@ -64,4 +64,4 @@ tabela_dpa <- dados %>%
   add_overall() %>%
   modify_header(label ~ "**Característica**")
 
-print(tabela)
+print(tabela_dpa)
