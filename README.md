@@ -1,4 +1,4 @@
-Chusheng Quexian project: Spatial-Temporal analysis of congenital anomalies from the state of Parana (2013-2022) usign DataSUS data.
+Chusheng Quexian project: Spatial-Temporal analysis of congenital anomalies from the state of Parana (2013-2022) using DataSUS data.
 
 - Data collected from DataSUS related to congenital anomalies from Parana 2013-2022
 - Data cleaning into a initial base of variables
