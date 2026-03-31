@@ -8,10 +8,9 @@ library(lmtest)
 library(statmod)
 library(ggplot2)
 library(generalhoslem)
-library(prop.test)
 library(lmtest)
-#library(ResourceSelection)
-install.packages('prop.test')
+library(hnp)
+
 data <- read_fst("data/dados_comprimidos.fst")
 summary(data)
 
@@ -32,10 +31,18 @@ anomalias <- c('Defeito do Tubo Neural', 'Microcefalia', 'Cardiopatias Congênit
 
 vars <- c(variaveis_explicativas, indicadores)
 
+#Amostrando dados para HNP
+set.seed(123)
+casos <- data[data$`Defeito do Tubo Neural` == 1, ]
+controles <- data[data$`Defeito do Tubo Neural` == 0, ]
+
+n_controles_amostra <- nrow(casos) * 100
+controles_sub <- controles[sample(nrow(controles), n_controles_amostra), ]
+data_hnp <- rbind(casos, controles_sub)
 #################################################################################
-#---------------------Modelo Inicial com todas variaveis------------------------#
+#-----------------------(1)Modelo Inicial Atemporal-----------------------------#
 #################################################################################
-ajuste_logito <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
+ajuste_log1 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
                        ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
                        SEXO + RACACORMAE + PESO + SEMAGESTAC + 
                        idhm_educacao + idhm_longevidade + idhm_renda + mortalidade +
@@ -43,21 +50,21 @@ ajuste_logito <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE +
                      family = binomial(link = 'logit'),
                      data = data)
 
-summary(ajuste_logito)
+summary(ajuste_log1)
 
 #Multicolinearidade
-vif(ajuste_logito)
+vif(ajuste_log1)
 
 #Resíduos quantílicos normalizados aleatorizados:
-residuos <- qresiduals(ajuste_logito)
+residuos <- qresiduals(ajuste_log1)
 qqnorm(residuos)
 qqline(residuos)
 
-plot(fitted(ajuste_logito), residuos)
+plot(fitted(ajuste_log1), residuos)
 
 #Teste de Hosmer-Lemeshow (Qualidade do Ajuste)
-obs_modelo <- ajuste_logito$y
-pred_modelo <- fitted(ajuste_logito)
+obs_modelo <- ajuste_log1$y
+pred_modelo <- fitted(ajuste_log1)
 
 CH_test <- logitgof(obs_modelo, pred_modelo, g = 10)
 print(CH_test)
@@ -73,11 +80,13 @@ ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
   theme_bw(base_size = 14)+
   geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
 
+#Reajustando modelo com HNP
+ajuste_hnp <- update(ajuste_log1, data = data_hnp)
+hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
 #################################################################################
-#------------------------ANO_NASC + MES_NASC + TEMPO----------------------------#
+#---------------------(2)ANO_NASC + MES_NASC + TEMPO----------------------------#
 #################################################################################
-
-ajuste_temporal <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
+ajuste_temp2 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
                        ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
                        SEXO + RACACORMAE + PESO + SEMAGESTAC + 
                        idhm_educacao + idhm_longevidade + idhm_renda + 
@@ -86,49 +95,9 @@ ajuste_temporal <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE
                      family = binomial(link = 'logit'),
                      data = data)
 
-summary(ajuste_temporal)
-
-#Multicolinearidade
-vif(ajuste_temporal)
-
-#Resíduos quantílicos normalizados aleatorizados:
-residuos <- qresiduals(ajuste_temporal)
-qqnorm(residuos)
-qqline(residuos)
-plot(fitted(ajuste_temporal), residuos)
-
-#Teste de Hosmer-Lemeshow (Qualidade do Ajuste)
-obs_modelo <- ajuste_temporal$y
-pred_modelo <- fitted(ajuste_temporal)
-
-CH_test <- logitgof(obs_modelo, pred_modelo, g = 10)
-print(CH_test)
-
-#Curva de calibração
-CH_test_obs <- CH_test$observed[,2]
-CH_test_exp <- CH_test$expected[,2]
-
-data_calibra <- data.frame(Esperado = CH_test_exp, Observado = CH_test_obs)
-
-ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
-  geom_point(size = 2)+
-  theme_bw(base_size = 14)+
-  geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
-
-#################################################################################
-#----------------------------ANO_NASC + MES_NASC--------------------------------#
-#################################################################################
-ajuste_temp2 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                       ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                       SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                       idhm_educacao + idhm_longevidade + idhm_renda + 
-                       porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
-                       + taxa_de_analfabetismo + ANO_NASC + MES_NASC,
-                     family = binomial(link = 'logit'),
-                     data = data)
-
 summary(ajuste_temp2)
 
+#Multicolinearidade
 vif(ajuste_temp2)
 
 #Resíduos quantílicos normalizados aleatorizados:
@@ -155,15 +124,20 @@ ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
   theme_bw(base_size = 14)+
   geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
 
-#Removendo ANO e MES e mantendo TEMPO
+#HNP com amostragem
+ajuste_hnp <- update(ajuste_temp2, data = data_hnp)
+hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
+#################################################################################
+#-------------------------(3)ANO_NASC + MES_NASC--------------------------------#
+#################################################################################
 ajuste_temp3 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                         ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                         SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                         idhm_educacao + idhm_longevidade + idhm_renda + 
-                         porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
-                         + taxa_de_analfabetismo + TEMPO,
-                       family = binomial(link = 'logit'),
-                       data = data)
+                       ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
+                       SEXO + RACACORMAE + PESO + SEMAGESTAC + 
+                       idhm_educacao + idhm_longevidade + idhm_renda + 
+                       porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
+                       + taxa_de_analfabetismo + ANO_NASC + MES_NASC,
+                     family = binomial(link = 'logit'),
+                     data = data)
 
 summary(ajuste_temp3)
 
@@ -193,15 +167,21 @@ ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
   theme_bw(base_size = 14)+
   geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
 
-#Removendo ANO e mantendo MES e TEMPO
+#HNP com amostragem
+ajuste_hnp <- update(ajuste_temp3, data = data_hnp)
+hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
+
+#################################################################################
+#--------------------------------(4)TEMPO---------------------------------------#
+#################################################################################
 ajuste_temp4 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                      ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                      SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                      idhm_educacao + idhm_longevidade + idhm_renda + 
-                      porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
-                      + taxa_de_analfabetismo + MES_NASC + TEMPO,
-                    family = binomial(link = 'logit'),
-                    data = data)
+                         ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
+                         SEXO + RACACORMAE + PESO + SEMAGESTAC + 
+                         idhm_educacao + idhm_longevidade + idhm_renda + 
+                         porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
+                         + taxa_de_analfabetismo + TEMPO,
+                       family = binomial(link = 'logit'),
+                       data = data)
 
 summary(ajuste_temp4)
 
@@ -230,3 +210,50 @@ ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
   geom_point(size = 2)+
   theme_bw(base_size = 14)+
   geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
+
+#HNP com amostragem
+ajuste_hnp <- update(ajuste_temp4, data = data_hnp)
+hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
+#################################################################################
+#-----------------------------(5)TEMPO + MES------------------------------------#
+#################################################################################
+ajuste_temp5 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
+                      ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
+                      SEXO + RACACORMAE + PESO + SEMAGESTAC + 
+                      idhm_educacao + idhm_longevidade + idhm_renda + 
+                      porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
+                      + taxa_de_analfabetismo + MES_NASC + TEMPO,
+                    family = binomial(link = 'logit'),
+                    data = data)
+
+summary(ajuste_temp5)
+
+vif(ajuste_temp5)
+
+#Resíduos quantílicos normalizados aleatorizados:
+residuos <- qresiduals(ajuste_temp5)
+qqnorm(residuos)
+qqline(residuos)
+plot(fitted(ajuste_temp5), residuos)
+
+#Teste de Hosmer-Lemeshow (Qualidade do Ajuste)
+obs_modelo <- ajuste_temp5$y
+pred_modelo <- fitted(ajuste_temp5)
+
+CH_test <- logitgof(obs_modelo, pred_modelo, g = 10)
+print(CH_test)
+
+#Curva de calibração
+CH_test_obs <- CH_test$observed[,2]
+CH_test_exp <- CH_test$expected[,2]
+
+data_calibra <- data.frame(Esperado = CH_test_exp, Observado = CH_test_obs)
+
+ggplot(data = data_calibra, aes(x = Esperado, y = Observado))+
+  geom_point(size = 2)+
+  theme_bw(base_size = 14)+
+  geom_abline(intercept = 0, slope = 1, col = 'red', linewidth = 1)
+
+#HNP com amostragem
+ajuste_hnp <- update(ajuste_temp5, data = data_hnp)
+hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
