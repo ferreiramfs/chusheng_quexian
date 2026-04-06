@@ -1,7 +1,7 @@
 #################################################################################
 #----------------------------Preparacao dos dados-------------------------------#
 #################################################################################
-library(fst)
+library(arrow)
 library(car)
 library(arm)
 library(lmtest)
@@ -10,26 +10,11 @@ library(ggplot2)
 library(generalhoslem)
 library(lmtest)
 library(hnp)
+library(dplyr)
 
-data <- read_fst("data/dados_comprimidos.fst")
+data <- read_parquet("data/model_data.parquet")
+
 summary(data)
-
-data$ANO_NASC <- as.factor(format(data$DTNASC, "%Y"))
-data$MES_NASC <- as.factor(format(data$DTNASC, "%m"))
-
-data_inicio <- min(data$DTNASC)
-data$TEMPO <- as.numeric(data$DTNASC - data_inicio + 1)
-
-variaveis_explicativas <- c('LOCNASC', 'IDADEMAE', 'ESTCIVMAE', 'ESCMAE', 'QTDGESTANT', 'GRAVIDEZ',
-                            'PARTO', 'CONSULTAS', 'SEXO', 'RACACORMAE', 'PESO', 'SEMAGESTAC')
-
-indicadores <- c('idhm', 'idhm_educacao', 'idhm_longevidade', 'idhm_renda', 'porcentagem_da_populacao_baixa_renda', 
-                 'cobertura_bcg', 'mortalidade', 'renda_domiciliar_per_capita', 'taxa_de_analfabetismo')
-
-anomalias <- c('Defeito do Tubo Neural', 'Microcefalia', 'Cardiopatias Congênitas', 'Fendas Orais', 'Órgãos Genitais', 
-               'Defeitos de Membros', 'Defeitos de Parede Abdominal', 'Síndrome de Down')
-
-vars <- c(variaveis_explicativas, indicadores)
 
 #Amostrando dados para HNP
 set.seed(123)
@@ -42,11 +27,11 @@ data_hnp <- rbind(casos, controles_sub)
 #################################################################################
 #-----------------------(1)Modelo Inicial Atemporal-----------------------------#
 #################################################################################
-ajuste_log1 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                       ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                       SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                       idhm_educacao + idhm_longevidade + idhm_renda + mortalidade +
-                       porcentagem_da_populacao_baixa_renda + cobertura_bcg + taxa_de_analfabetismo,
+ajuste_log1 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                     QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                     RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm_educacao + 
+                     idhm_longevidade + idhm_renda + mortalidade + cobertura_bcg +
+                     porcentagem_da_populacao_baixa_renda + taxa_de_analfabetismo + grau_urbanizacao,
                      family = binomial(link = 'logit'),
                      data = data)
 
@@ -86,14 +71,14 @@ hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
 #################################################################################
 #---------------------(2)ANO_NASC + MES_NASC + TEMPO----------------------------#
 #################################################################################
-ajuste_temp2 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                       ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                       SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                       idhm_educacao + idhm_longevidade + idhm_renda + 
-                       porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
-                       + taxa_de_analfabetismo + ANO_NASC + MES_NASC + TEMPO,
-                     family = binomial(link = 'logit'),
-                     data = data)
+ajuste_temp2 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                      QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                      RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm_educacao + 
+                      idhm_longevidade + idhm_renda + mortalidade + cobertura_bcg +
+                      porcentagem_da_populacao_baixa_renda + taxa_de_analfabetismo + 
+                      grau_urbanizacao + ANO_NASC + MES_NASC + TEMPO,
+                    family = binomial(link = 'logit'),
+                    data = data)
 
 summary(ajuste_temp2)
 
@@ -130,14 +115,14 @@ hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
 #################################################################################
 #-------------------------(3)ANO_NASC + MES_NASC--------------------------------#
 #################################################################################
-ajuste_temp3 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                       ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                       SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                       idhm_educacao + idhm_longevidade + idhm_renda + 
-                       porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
-                       + taxa_de_analfabetismo + ANO_NASC + MES_NASC,
-                     family = binomial(link = 'logit'),
-                     data = data)
+ajuste_temp3 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                      QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                      RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm_educacao + 
+                      idhm_longevidade + idhm_renda + mortalidade + cobertura_bcg +
+                      porcentagem_da_populacao_baixa_renda + taxa_de_analfabetismo + 
+                      grau_urbanizacao + ANO_NASC + MES_NASC,
+                    family = binomial(link = 'logit'),
+                    data = data)
 
 summary(ajuste_temp3)
 
@@ -174,14 +159,14 @@ hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
 #################################################################################
 #--------------------------------(4)TEMPO---------------------------------------#
 #################################################################################
-ajuste_temp4 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                         ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                         SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                         idhm_educacao + idhm_longevidade + idhm_renda + 
-                         porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
-                         + taxa_de_analfabetismo + TEMPO,
-                       family = binomial(link = 'logit'),
-                       data = data)
+ajuste_temp4 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                      QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                      RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm_educacao + 
+                      idhm_longevidade + idhm_renda + mortalidade + cobertura_bcg +
+                      porcentagem_da_populacao_baixa_renda + taxa_de_analfabetismo + 
+                      grau_urbanizacao + TEMPO,
+                    family = binomial(link = 'logit'),
+                    data = data)
 
 summary(ajuste_temp4)
 
@@ -217,12 +202,12 @@ hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
 #################################################################################
 #-----------------------------(5)TEMPO + MES------------------------------------#
 #################################################################################
-ajuste_temp5 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + 
-                      ESCMAE + QTDGESTANT + GRAVIDEZ + PARTO + CONSULTAS + 
-                      SEXO + RACACORMAE + PESO + SEMAGESTAC + 
-                      idhm_educacao + idhm_longevidade + idhm_renda + 
-                      porcentagem_da_populacao_baixa_renda + cobertura_bcg + mortalidade + 
-                      + taxa_de_analfabetismo + MES_NASC + TEMPO,
+ajuste_temp5 <- glm(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                      QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                      RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm_educacao + 
+                      idhm_longevidade + idhm_renda + mortalidade + cobertura_bcg +
+                      porcentagem_da_populacao_baixa_renda + taxa_de_analfabetismo + 
+                      grau_urbanizacao + MES_NASC + TEMPO,
                     family = binomial(link = 'logit'),
                     data = data)
 
