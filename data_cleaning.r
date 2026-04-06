@@ -4,7 +4,7 @@ lapply(packages_list, library, character.only=TRUE)
 
 setwd(this.path::here())
 #utilizando o argumento "as.is=TRUE"para transformar os dados em caracteres
-BANCOTOTAL<- read.dbf(file = 'data/BANCO_RES.dbf', as.is = TRUE)
+BANCOTOTAL<- read_parquet('data/BANCO_RES.parquet')
 
 cols_data <- c('DTNASC', 'DTCADASTRO', 'DTULTMENST')
 BANCOTOTAL[cols_data] <- lapply(BANCOTOTAL[cols_data], as.Date, format= "%d%m%Y")
@@ -142,4 +142,4 @@ write.csv(prevalencias_mun, "data/prevalencias/municipal.csv", row.names = FALSE
 write.csv(prevalencias_reg, "data/prevalencias/regional.csv", row.names = FALSE)
 write.csv(prevalencias_meso, "data/prevalencias/mesoregional.csv", row.names = FALSE)
 write.csv(prevalencias_macro, "data/prevalencias/macroregional.csv", row.names = FALSE)
-write_parquet(base_final, 'data/dados_finais.parquet')
+write_parquet(base_final, 'data/cleaned_data.parquet')
