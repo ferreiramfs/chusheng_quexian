@@ -1,5 +1,5 @@
 #----------------------------------------Importando bases e arquivos -------------------
-packages_list <- c('readxl', 'foreign', 'Epi', 'this.path', 'dplyr', 'stringr', 'tidyr')
+packages_list <- c('readxl', 'foreign', 'Epi', 'this.path', 'dplyr', 'stringr', 'tidyr', 'arrow')
 lapply(packages_list, library, character.only=TRUE)
 
 setwd(this.path::here())
@@ -9,9 +9,7 @@ BANCOTOTAL<- read.dbf(file = 'data/BANCO_RES.dbf', as.is = TRUE)
 cols_data <- c('DTNASC', 'DTCADASTRO', 'DTULTMENST')
 BANCOTOTAL[cols_data] <- lapply(BANCOTOTAL[cols_data], as.Date, format= "%d%m%Y")
 
-BANCOTOTAL$ULTMENST <- as.numeric(BANCOTOTAL$DTNASC - BANCOTOTAL$DTULTMENST)
-
-LISTA_AC<-read_excel(path = 'data/anomalias/LISTA_AC.xlsx',
+LISTA_AC<-read_excel(path = 'data/LISTA_AC.xlsx',
 sheet="COD",
 skip=0)
 
@@ -24,14 +22,15 @@ baixa_renda <- read.csv('data/indicadores/porc_baixarenda.csv', sep = ';')
 renda_pcap <- read.csv('data/indicadores/renda_dompercap.csv', sep = ';')
 analfabetismo <- read.csv('data/indicadores/taxa_analfabetismo.csv', sep = ';')
 mortalidade <- read.csv('data/indicadores/taxa_mortalidade.csv', sep = ';')
+urbanizacao <- read.csv('data/indicadores/grau_urbanizacao.csv', sep = ',')
 
 #Montando base resumida
 #Selecao de variaveis
 BANCORESUMIDO <-  BANCOTOTAL |> 
   select(CODMUNNASC, CODESTAB, CODMUNRES, LOCNASC, IDADEMAE, ESTCIVMAE, ESCMAE
-         , CODOCUPMAE, QTDFILVIVO, QTDFILMORT,QTDGESTANT, QTDPARTCES, QTDPARTNOR
+         , CODOCUPMAE, QTDFILVIVO, QTDFILMORT, QTDGESTANT, QTDPARTCES, QTDPARTNOR
          , GRAVIDEZ, PARTO, CONSULTAS, DTNASC, SEXO, APGAR1, APGAR5, RACACORMAE
-         , PESO, IDANOMAL, CODANOMAL, DTCADASTRO, SEMAGESTAC, GESTACAO, IDADEPAI, ULTMENST)
+         , PESO, IDANOMAL, CODANOMAL, DTCADASTRO, SEMAGESTAC, GESTACAO, IDADEPAI)
 
 ##Criando variáveis que identificam a presença de cada tipo de Anomalia
 #Limpa os códigos na base de tipos (remove o "-descrição")
@@ -73,6 +72,9 @@ indicadores <- left_join(indicadores, analfabetismo[, c("municipio", "taxa_de_an
 
 indicadores$cod6 <- sub(" .*", "", indicadores$municipio)
 
+urbanizacao$cod <- as.character(urbanizacao$cod)
+indicadores <- left_join(indicadores, urbanizacao[, c("cod", "grau_urbanizacao")], by = c('cod6' = 'cod'))
+
 idhm$cod6 <- substr(idhm$codigo, 1, 6)
 
 #Base final de indicadores
@@ -82,7 +84,7 @@ indicadores$codigo <- as.character(indicadores$codigo)
 #Juntando Base Resumida com Indicadores
 base_final <- left_join(BANCORESUMIDO, indicadores[, c("cod6", "idhm", "idhm_educacao", "idhm_longevidade", "idhm_renda"
                                                        , "porcentagem_da_populacao_baixa_renda", "cobertura_bcg", "mortalidade"
-                                                       , "renda_domiciliar_per_capita", "taxa_de_analfabetismo")], by = c("CODMUNRES" = "cod6"))
+                                                       , "renda_domiciliar_per_capita", "taxa_de_analfabetismo", "grau_urbanizacao")], by = c("CODMUNRES" = "cod6"))
 
 #Removendo os 21 casos com código municipal inválido (código 410000)
 base_final <- base_final %>%
@@ -140,4 +142,4 @@ write.csv(prevalencias_mun, "data/prevalencias/municipal.csv", row.names = FALSE
 write.csv(prevalencias_reg, "data/prevalencias/regional.csv", row.names = FALSE)
 write.csv(prevalencias_meso, "data/prevalencias/mesoregional.csv", row.names = FALSE)
 write.csv(prevalencias_macro, "data/prevalencias/macroregional.csv", row.names = FALSE)
-write.csv(base_final, "data/dados_finais.csv", row.names = FALSE)
+write_parquet(base_final, 'data/dados_finais.parquet')
