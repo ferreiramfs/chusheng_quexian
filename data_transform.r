@@ -1,4 +1,4 @@
-codificar_qtdes <- function(x) {
+codificar_qtde_gestant <- function(x) {
   out <- dplyr::case_when(
     x == 99 ~ "Ignorado",
     x == 0  ~ "0",
@@ -11,19 +11,37 @@ codificar_qtdes <- function(x) {
   factor(out, levels = c("0", "1", "2", "3", "4+", "Ignorado"))
 }
 
-codificar_locnasc <- function(x) {
-  factor(x,
-         levels = c(1, 2, 3, 4, 5, 9),
-         labels = c("Hospital", "Outros estabelecimentos de saúde"
-                    , "Domicílio", "Outros", "Aldeia indígena", "Ignorado")
+codificar_qtde_filmort <- function(x) {
+  out <- dplyr::case_when(
+    x == 99 ~ "Ignorado",
+    x == 0  ~ "0",
+    x == 1  ~ "1",
+    x >= 2 & x < 99 ~ "2+",
+    TRUE ~ NA_character_
   )
+  factor(out, levels = c("0", "1", "2+", "Ignorado"))
+}
+
+codificar_locnasc <- function(x) {
+  out <- dplyr::case_when(
+    x == 9 ~ "Ignorado",
+    x == 1  ~ "Hospital",
+    x == 2 | x == 3 | x == 4 | x == 5  ~ "Outros",
+    TRUE ~ NA_character_
+  )
+  factor(out, levels = c("Hospital", "Outros", "Ignorado"))
 }
 
 codificar_estciv <- function(x) {
-  factor(x,
-         levels = c(1, 2, 3, 4, 5, 9),
-         labels = c("Solteira", "Casada", "Viúva", "Separada jud.", "União estável", "Ignorada")
+  out <- dplyr::case_when(
+    x == 9 ~ "Ignorada",
+    x == 1  ~ "Solteira",
+    x == 2  ~ "Casada",
+    x == 5  ~ "União Estável",
+    x == 3 | x == 4  ~ "Outros",
+    TRUE ~ NA_character_
   )
+  factor(out, levels = c("Solteira", "Casada", "União Estável", 'Outros', 'Ignorada'))
 }
 
 codificar_escmae <- function(x) {
@@ -34,10 +52,14 @@ codificar_escmae <- function(x) {
 }
 
 codificar_racacor <- function(x) {
-  factor(x,
-    levels = c(1, 2, 3, 4, 5),
-    labels = c("Branca", "Preta", "Amarela", "Parda", "Indígena")
+  out <- dplyr::case_when(
+    x == 1 ~ "Branca",
+    x == 2  ~ "Preta",
+    x == 4  ~ "Parda",
+    x == 3 | x == 5  ~ "Outros",
+    TRUE ~ NA_character_
   )
+  factor(out, levels = c("Branca", "Preta", "Parda", 'Outros'))
 }
 
 codificar_idanomal <- function(x) {
@@ -62,20 +84,21 @@ codificar_parto <- function(x){
 }
 
 codificar_gravidez <- function(x){
-  factor(x,
-         levels = c(1, 2, 3, 9),
-         labels = c("Única", "Dupla", "Tripla ou mais", "Ignorado")
+  out <- dplyr::case_when(
+    x == 9 ~ "Ignorado",
+    x == 1  ~ "Única",
+    x == 2 | x == 3  ~ "Dupla ou mais",
+    TRUE ~ NA_character_
   )
+  factor(out, levels = c("Única", "Dupla ou mais", "Ignorado"))
 }
 
 codificar_semanas_gestacao <- function(x){
   cut(x,
-      breaks = c(0, 28, 32, 37, 42, 100),
-      labels = c("Extremamente pré-termo (<28 semanas)",
-                 "Muito pré-termo (28-31 semanas)",
-                 "Pré-termo moderado/tardio (32-36 semanas)", 
+      breaks = c(0, 37, 42, 100),
+      labels = c("Pré-termo (<37 semanas)", 
                  "Termo (37-41 semanas)",
-                 "Pós-termo (≥42 semanas)"),
+                 "Pós-termo (>41 semanas)"),
       right = FALSE,
       include.lowest = TRUE)
 }
@@ -96,36 +119,18 @@ codificar_apgar <- function(x) {
   )
 }
 
-codificar_codocumae <- function(x) {
-  
-  cod <- as.numeric(substr(x, 1, 3))
-  
-  categorias <- case_when(
-    is.na(x) ~ NA_character_,
-    between(cod, 0, 99) ~ "0 - Forças de Segurança",
-    between(cod, 101, 199) ~ "1 - Dirigentes/Gerentes",
-    between(cod, 201, 299) ~ "2 - Alta Qualificação",
-    between(cod, 301, 599) ~ "3/4/5 - Comércio/Serviços",
-    between(cod, 601, 699) ~ "6 - Agropecuária",
-    between(cod, 701, 999) ~ "7/8/9 -  Indústria",
-    TRUE ~ NA_character_
-  )
-  
-  niveis_ordenados <- c(
-    "0 - Forças de Segurança",
-    "1 - Dirigentes/Gerentes", 
-    "2 - Alta Qualificação",
-    "3/4/5 - Comércio/Serviços",
-    "6 - Agropecuária",
-    "7/8/9 -  Indústria",
-    "10 - Não Classificado"
-  )
-  
-  factor(categorias, levels = niveis_ordenados)
-}
 
 #Depara das colunas
 transform_data <- function(data){
+  
+  data <- data %>%
+    mutate(PANDEMIA = ANO_NASC %in% c(2020, 2021))
+  
+  data$ANO_NASC <- as.factor(format(data$DTNASC, "%Y"))
+  data$MES_NASC <- as.factor(format(data$DTNASC, "%m"))
+  
+  data_inicio <- min(data$DTNASC)
+  data$TEMPO <- as.numeric(data$DTNASC - data_inicio + 1)
   
   data$SEXO[data$SEXO == "M"] <- 1
   data$SEXO[data$SEXO == "F"] <- 2
@@ -134,20 +139,15 @@ transform_data <- function(data){
   data$IDADEMAE[data$IDADEMAE == 99] <- NA
   
   #Transformando colunas para numéricas
-  cols_num <- c("IDADEMAE", "QTDFILVIVO", "QTDFILMORT", "QTDGESTANT", "QTDPARTCES", "QTDPARTNOR", "GRAVIDEZ", "PARTO", "CONSULTAS", "APGAR1", "APGAR5", "PESO", "SEMAGESTAC", "GESTACAO")
+  cols_num <- c("IDADEMAE", "QTDFILMORT", "QTDGESTANT", "GRAVIDEZ", "PARTO", "CONSULTAS", "APGAR1", "APGAR5", "PESO", "SEMAGESTAC", "GESTACAO")
   data[cols_num] <- lapply(data[cols_num], as.numeric)
   
   #Transformando colunas para datas
   cols_data <- c('DTNASC', 'DTCADASTRO')
   data[cols_data] <- lapply(data[cols_data], as.Date, format= "%d%m%Y")
   
-  #Colunas de quantidades
-  cols_qtdes <- c("QTDFILVIVO", "QTDFILMORT", "QTDGESTANT", "QTDPARTCES", "QTDPARTNOR")
-  
-  #Codificando campos
-  data[cols_qtdes] <- lapply(data[cols_qtdes], codificar_qtdes)
-  
-  data$CODOCUPMAE <- codificar_codocumae(data$CODOCUPMAE)
+  data$QTDGESTANT <- codificar_qtde_gestant(data$QTDGESTANT)
+  data$QTDFILMORT <- codificar_qtde_filmort(data$QTDFILMORT)
   data$ESCMAE <- codificar_escmae(data$ESCMAE)
   data$LOCNASC <- codificar_locnasc(data$LOCNASC)
   data$ESTCIVMAE <- codificar_estciv(data$ESTCIVMAE)

@@ -1,6 +1,6 @@
 #Pacotes
-packages_list <- c("shiny", "bslib", "thematic", "tidyverse", "gitlink"
-                   , "bslib", "leaflet", "geobr", "dplyr", "sf")
+packages_list <- c("shiny", "bslib", "thematic", "gitlink", "readr", "bslib", "leaflet", "geobr", "dplyr", "sf",
+                   "arrow", "ggplot2")
 
 lapply(packages_list, library, character.only = TRUE)
 
@@ -23,7 +23,7 @@ shape_macroregional <- st_read("data/shapes/macro.shp")
 
 regioes <- read_csv("data/regioes.csv")
 
-data <- read_csv("data/dados_finais.csv")
+data <- read_parquet('data/cleaned_data.parquet')
 source("data_transform.r")
 data <- transform_data(data)
 
@@ -36,17 +36,20 @@ data <- data %>%
     Todas = rowSums(across(all_of(ac_agrupadas), ~ as.logical(.)), na.rm = TRUE) > 0
   )
 
+#Salvando base com transformações
+write_parquet(data, 'data/model_data.parquet')
+
 table(data$"Cardiopatias Congênitas")
 ac_agrupadas <- c(ac_agrupadas, c('Todas'))
 
 #Variáveis Contínuas
-var_num <- c('idhm', 'idhm_educacao', 'idhm_longevidade', 'idhm_renda', 'porcentagem_da_populacao_baixa_renda'
-             , 'renda_domiciliar_per_capita', 'mortalidade', 'taxa_de_analfabetismo', 'cobertura_bcg'
-             , 'IDADEMAE', 'PESO', 'IDADEPAI')
+var_num <- c('idhm_educacao', 'idhm_longevidade', 'idhm_renda', 'porcentagem_da_populacao_baixa_renda'
+             , 'mortalidade', 'taxa_de_analfabetismo', 'cobertura_bcg', 'grau_urbanizacao'
+             , 'IDADEMAE', 'PESO', 'TEMPO')
 
 #Variáveis Categóricas ou Discretas com poucos valores
-var_cat <- c('ESCMAE', 'SEXO', 'RACACORMAE', 'ESTCIVMAE', 'CONSULTAS', 'APGAR1', 'APGAR5'
-             , 'LOCNASC', 'CODOCUPMAE', 'QTDGESTANT', 'GRAVIDEZ', 'PARTO', 'SEMAGESTAC')
+var_cat <- c('ESCMAE', 'SEXO', 'RACACORMAE', 'ESTCIVMAE', 'CONSULTAS', 'ANO_NASC', 'MES_NASC'
+             , 'LOCNASC', 'QTDGESTANT', 'QTDFILMORT', 'GRAVIDEZ', 'PARTO', 'SEMAGESTAC', 'PANDEMIA')
 
 #Tema ggplot
 ggplot2::theme_set(ggplot2::theme_minimal())
