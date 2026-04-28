@@ -15,6 +15,9 @@ library(glmmTMB)
 
 data <- read_parquet("data/model_data.parquet")
 
+data$ANO <- as.numeric(data$ANO_NASC)
+data$MES <- as.numeric(data$MES_NASC)
+
 summary(data)
 
 #Amostrando dados para HNP
@@ -116,8 +119,7 @@ hnp(ajuste_hnp, sim = 99, conf = 0.95, main = "HNP - Amostra Estratificada")
 #################################################################################
 #---------------------------(3)GLMM Regionais-----------------------------------#
 #################################################################################
-data$ANO <- as.numeric(data$ANO_NASC)
-data$MES <- as.numeric(data$MES_NASC)
+
 
 #Removendo os 2 casos com ignorado para QTDFILMORT
 data <- data %>% 
@@ -151,19 +153,87 @@ ajuste_misto <-  glmmTMB(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVM
                                                   optArgs = list(method = "L-BFGS-B")))
 diagnose(ajuste_misto)
 summary(data_scaled)
+
+ac_agrupadas <- c("Defeito do Tubo Neural", "Microcefalia", "Cardiopatias Congênitas", "Fendas Orais"
+                  , "Órgãos Genitais", "Defeitos de Membros", "Defeitos de Parede Abdominal", "Síndrome de Down", "Todas")
+
 glmm_cardio <-  glmmTMB(`Cardiopatias Congênitas` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
                            QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
-                           RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + MES + (1 | regional), 
+                           RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
                          family = binomial(link = 'logit'),
-                         data = data_scaled,
+                         data = data,
                          control = glmmTMBControl(optimizer = optim, 
                                                   optArgs = list(method = "L-BFGS-B")))
 summary(glmm_cardio)
-glmm_cardio2 <-  glmmTMB(`Cardiopatias Congênitas` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+
+glmm_tubo <-  glmmTMB(`Defeito do Tubo Neural` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
                           QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
-                          RACACORMAE + PESO + SEMAGESTAC + idhm + MES + (1 | regional) + (1 | ANO), 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
                         family = binomial(link = 'logit'),
-                        data = data_scaled,
+                        data = data,
                         control = glmmTMBControl(optimizer = optim, 
                                                  optArgs = list(method = "L-BFGS-B")))
-summary(glmm_cardio2)
+summary(glmm_tubo)
+
+glmm_micro <-  glmmTMB(`Microcefalia` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                          QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
+                        family = binomial(link = 'logit'),
+                        data = data,
+                        control = glmmTMBControl(optimizer = optim, 
+                                                 optArgs = list(method = "L-BFGS-B")))
+summary(glmm_micro)
+
+glmm_fendas <-  glmmTMB(`Fendas Orais` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                          QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
+                        family = binomial(link = 'logit'),
+                        data = data,
+                        control = glmmTMBControl(optimizer = optim, 
+                                                 optArgs = list(method = "L-BFGS-B")))
+summary(glmm_fendas)
+
+glmm_orgaos <-  glmmTMB(`Órgãos Genitais` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                          QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
+                        family = binomial(link = 'logit'),
+                        data = data,
+                        control = glmmTMBControl(optimizer = optim, 
+                                                 optArgs = list(method = "L-BFGS-B")))
+summary(glmm_orgaos)
+
+glmm_membros <-  glmmTMB(`Defeitos de Membros` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                          QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
+                        family = binomial(link = 'logit'),
+                        data = data,
+                        control = glmmTMBControl(optimizer = optim, 
+                                                 optArgs = list(method = "L-BFGS-B")))
+summary(glmm_membros)
+
+glmm_abdominal <-  glmmTMB(`Defeitos de Parede Abdominal` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                          QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
+                        family = binomial(link = 'logit'),
+                        data = data,
+                        control = glmmTMBControl(optimizer = optim, 
+                                                 optArgs = list(method = "L-BFGS-B")))
+summary(glmm_abdominal)
+
+glmm_down <-  glmmTMB(`Síndrome de Down` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                          QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
+                        family = binomial(link = 'logit'),
+                        data = data,
+                        control = glmmTMBControl(optimizer = optim, 
+                                                 optArgs = list(method = "L-BFGS-B")))
+summary(glmm_down)
+
+glmm_todas <-  glmmTMB(`Todas` ~ LOCNASC + IDADEMAE + ESTCIVMAE + ESCMAE + 
+                          QTDGESTANT + QTDFILMORT + GRAVIDEZ + PARTO + CONSULTAS + SEXO + 
+                          RACACORMAE + PESO + SEMAGESTAC + PANDEMIA + idhm + ANO + (1 | regional), 
+                        family = binomial(link = 'logit'),
+                        data = data,
+                        control = glmmTMBControl(optimizer = optim, 
+                                                 optArgs = list(method = "L-BFGS-B")))
+summary(glmm_todas)
