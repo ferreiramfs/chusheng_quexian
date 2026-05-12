@@ -109,6 +109,8 @@ rr_todos <- rbind(rr_iid, rr_icar, rr_bym, rr_icar_rw, rr_bym_rw)
 pr_municipios <- readRDS('light_data/municipal.rds')
 pr_municipios$cod_mun_6 <- as.character(gsub(".$", "", pr_municipios$CC_2))
 
+correspondencia <- read.csv2('data/resultado_modelos/correspondencia.csv')
+
 # Merge com correspondência (já criada anteriormente)
 pr_municipios <- merge(pr_municipios, correspondencia, 
                        by.x = "cod_mun_6", by.y = "CODMUNRES",
