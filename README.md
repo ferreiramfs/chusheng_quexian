@@ -6,6 +6,7 @@ Chusheng Quexian project: Spatial-Temporal analysis of congenital anomalies from
 - Data visualization of the individual variables, aswell as the relation for each pair of anomaly x variable
 - Non adjusted analysis for variable significancy usign chi-squared
 - Data modelling, using GLM (Logistic Regression)
+- Inla Modelling (Spatial: IID, Besag and BYM, Temporal: Random Walk)
 
 There are two options for the Shiny App: 
 
