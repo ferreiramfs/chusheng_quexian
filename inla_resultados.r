@@ -5,11 +5,17 @@ library(dplyr)
 ###############################################################################
 ###-------------------------Carregamento e Métricas-------------------------###
 ###############################################################################
-modelo_iid <- readRDS('data/resultado_modelos/modelo_iid.rds')
-modelo_icar <- readRDS('data/resultado_modelos/modelo_icar.rds')
-modelo_bym <- readRDS('data/resultado_modelos/modelo_bym.rds')
-modelo_icar_rw <- readRDS('data/resultado_modelos/modelo_icar_rw.rds')
-modelo_bym_rw <- readRDS('data/resultado_modelos/modelo_bym_rw.rds')
+#Selecionar anomalia
+anomalia <- 'fendas_orais'
+caminho <- 'data/resultados/'
+
+modelo_iid <- readRDS(paste0(caminho, anomalia, '_iid.RDS'))
+modelo_icar <- readRDS(paste0(caminho, anomalia, '_icar.RDS'))
+modelo_bym <- readRDS(paste0(caminho, anomalia, '_bym.RDS'))
+modelo_icar_rw <- readRDS(paste0(caminho, anomalia, '_icar_rw.RDS'))
+modelo_bym_rw <- readRDS(paste0(caminho, anomalia, '_bym_rw.RDS'))
+
+correspondencia <- readRDS("data/resultado_modelos/correspondencia.rds")
 
 comparacao_modelos <- data.frame(
   Modelo = c("IID", "ICAR", "BYM", "ICAR + RW1", "BYM + RW1"),
@@ -109,8 +115,6 @@ rr_todos <- rbind(rr_iid, rr_icar, rr_bym, rr_icar_rw, rr_bym_rw)
 pr_municipios <- readRDS('light_data/municipal.rds')
 pr_municipios$cod_mun_6 <- as.character(gsub(".$", "", pr_municipios$CC_2))
 
-correspondencia <- read.csv2('data/resultado_modelos/correspondencia.csv')
-
 # Merge com correspondência (já criada anteriormente)
 pr_municipios <- merge(pr_municipios, correspondencia, 
                        by.x = "cod_mun_6", by.y = "CODMUNRES",
@@ -154,22 +158,7 @@ modelo_icar_rw$mode$mode.status
 # Hiperparâmetros (precisões)
 modelo_icar_rw$summary.hyperpar
 
-#Covariáveis municipais
-summary_random <- modelo_icar_rw$summary.random$mun_id
-coefs_contextuais <- summary_random[grep("z", summary_random$ID), ]
-print(coefs_contextuais)
-
-# Converter para OR
-coefs_contextuais$OR <- exp(coefs_contextuais$mean)
-coefs_contextuais$OR_inf <- exp(coefs_contextuais$`0.025quant`)
-coefs_contextuais$OR_sup <- exp(coefs_contextuais$`0.975quant`)
-
-# Tabela formatada
-tabela_contextuais <- coefs_contextuais[, c("ID", "OR", "OR_inf", "OR_sup")]
-colnames(tabela_contextuais) <- c("Variável Municipal", "OR", "IC 2.5%", "IC 97.5%")
-print(tabela_contextuais)
-
-#Covariáveis Individuais
+#Covariáveis
 # Efeitos fixos
 efeitos_fixos <- modelo_icar_rw$summary.fixed
 
@@ -208,12 +197,12 @@ ggplot(efeito_temporal, aes(x = ID, y = OR)) +
   geom_hline(yintercept = 1, linetype = "dashed", color = "gray50") +
   theme_minimal() +
   labs(x = "Ano de Nascimento", y = "Odds Ratio",
-       title = "Tendência Temporal do Risco de Cardiopatias Congênitas",
+       title = paste0("Tendência Temporal do Risco de ", anomalia),
        subtitle = "Efeito temporal suavizado (RW1) - IC 95%")
 
 #EFEITO ESPACIAL
 # Extrair resíduos espaciais (excluindo z1, z2...)
-efeitos_espaciais <- summary_random[!grepl("z", summary_random$ID), ]
+efeitos_espaciais <- modelo_icar_rw$summary.random$mun_id[1:399, ]
 efeitos_espaciais$mun_id <- as.numeric(efeitos_espaciais$ID)
 
 # Calcular RR residual
@@ -244,7 +233,7 @@ ggplot(pr_mapas) +
     midpoint = 1, name = "RR Residual"
   ) +
   theme_void() +
-  labs(title = "Risco Relativo Residual de Cardiopatias Congênitas",
+  labs(title = paste0("Risco Relativo Residual de", anomalia),
        subtitle = "Modelo ICAR + RW1 - Efeito espacial após ajuste por covariáveis")
 
 # Mapa 2: Significância
@@ -259,41 +248,3 @@ ggplot(pr_mapas) +
   theme_void() +
   labs(title = "Significância do Efeito Espacial Residual",
        subtitle = "IC 95% - Modelo ICAR + RW1")
-
-
-#Efeitos Gerais
-# Combinar efeitos individuais e contextuais em um único plot
-efeitos_individuais$tipo <- "Individual (Nível 1)"
-coefs_contextuais$variavel <- coefs_contextuais$ID
-coefs_contextuais$tipo <- "Municipal (Nível 2)"
-
-# Juntar
-todos_efeitos <- rbind(
-  efeitos_individuais[, c("variavel", "OR", "OR_inf", "OR_sup", "tipo")],
-  coefs_contextuais[, c("variavel", "OR", "OR_inf", "OR_sup", "tipo")]
-)
-
-# Forest plot
-ggplot(todos_efeitos, aes(x = OR, y = reorder(variavel, OR), color = tipo)) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "gray50") +
-  geom_point(size = 3) +
-  geom_errorbarh(aes(xmin = OR_inf, xmax = OR_sup), height = 0.2) +
-  scale_x_log10() +
-  scale_color_manual(values = c("Individual (Nível 1)" = "steelblue",
-                                "Municipal (Nível 2)" = "darkgreen")) +
-  theme_minimal() +
-  labs(x = "Odds Ratio (escala log)", y = "",
-       color = "Nível Hierárquico",
-       title = "Efeitos das Covariáveis sobre Cardiopatias Congênitas",
-       subtitle = "Modelo Multinível ICAR + RW1 - IC 95%")
-
-# Ver as primeiras linhas do summary.random
-head(modelo_icar_rw$summary.random$mun_id, 10)
-
-# Ver TODOS os IDs únicos
-unique(modelo_icar_rw$summary.random$mun_id$ID)
-
-# Ver quantas linhas tem
-nrow(modelo_icar_rw$summary.random$mun_id)
-
-modelo_icar_rw$summary.random$mun_id[grep("z|Z|cov", modelo_icar_rw$summary.random$mun_id$ID), ]
