@@ -9,13 +9,8 @@ library(sf)
 library(ggplot2)
 
 data <- read_parquet("data/model_data.parquet")
-indicadores <- read.csv2("data/indicadores/indicadores.csv")
 
-indicadores <- indicadores %>%
-  mutate(across(-c('municipio'), as.numeric))
-
-data$ANO <- as.numeric(data$ANO_NASC)
-data$MES <- as.numeric(data$MES_NASC)
+data$ANO_NASC <- as.numeric(data$ANO_NASC)
 
 data <- data %>%
   rename(
@@ -41,210 +36,166 @@ data$cardiopatias_congenitas <- as.numeric(data$cardiopatias_congenitas)
 
 data$mun_id <- as.numeric(as.factor(data$CODMUNRES))
 
-correspondencia <- data %>%
-  select(CODMUNRES, mun_id) %>%
-  distinct() %>%
-  arrange(mun_id)
-
-#write.csv2(correspondencia, 'data/resultado_modelos/correspondencia.csv')
-
-dados_municipais <- merge(correspondencia, indicadores,
-                          by.x = "CODMUNRES", by.y = "cod",
-                          all.x = TRUE)
-
-#Ordenar
-dados_municipais <- dados_municipais[order(dados_municipais$mun_id), ]
-
-#Centralizando componentes
-dados_municipais$idhm_c <- scale(dados_municipais$idhm)
-dados_municipais$urbanizacao_c <- scale(dados_municipais$grau_urbanizacao)
-dados_municipais$renda_dom_c <- scale(dados_municipais$renda_domiciliar_per_capita)
-dados_municipais$analfabetismo_c <- scale(dados_municipais$taxa_de_analfabetismo)
-
-#Teste correlação
-cor(dados_municipais[, c("idhm", "grau_urbanizacao", "renda_domiciliar_per_capita", "taxa_de_analfabetismo")])
-
-#Matriz Z com as variáveis municipais
-Z <- as.matrix(dados_municipais[, c("idhm_c", "urbanizacao_c", "renda_dom_c", "analfabetismo_c")])
-
-#Diferentes Modelos sendo testados:
-
-#Modelo Espacial Estrutural sem Multinivel
-form_base <- cardiopatias_congenitas ~ 
-  IDADEMAE + ESCMAE + CONSULTAS +
-  idhm +                         
-  factor(ANO_NASC) +             
-  f(mun_id, model = "besag", graph = g)
-
-#Todos a seguir são Multinivel:
-
-#Modelo Espacial Não Estruturado 
-form_iid <- cardiopatias_congenitas ~ 
-  IDADEMAE + ESCMAE + CONSULTAS +
-  factor(ANO_NASC) +
-  f(mun_id, model = "iid", Z = Z,
-    hyper = list(prec = list(prior = "loggamma", param = c(1, 0.01))))
-
-#Modelo Espacial Estruturado
-form_icar <- cardiopatias_congenitas ~ 
-  IDADEMAE + ESCMAE + CONSULTAS +
-  factor(ANO_NASC) +
-  f(mun_id, 
-    model = "besag", 
-    graph = g,
-    Z = Z,
-    hyper = list(
-      prec = list(prior = "loggamma", param = c(1, 0.01))
-    )
-  )
-
-#Modelo Espacial Estruturado + Não Estruturado
-form_bym <- cardiopatias_congenitas ~ 
-  IDADEMAE + ESCMAE + CONSULTAS +
-  factor(ANO_NASC) +
-  f(mun_id, model = "bym", graph = g, Z = Z,
-    hyper = list(
-      prec.unstruct = list(prior = "loggamma", param = c(1, 0.01)),
-      prec.spatial = list(prior = "loggamma", param = c(1, 0.01))
-    ))
-
-#Modelo Espacial Estruturado + RW Temporal
-form_icar_rw <- cardiopatias_congenitas ~ 
-  IDADEMAE + ESCMAE + CONSULTAS +
-  f(mun_id, model = "besag", graph = g, Z = Z,
-    hyper = list(prec = list(prior = "loggamma", param = c(1, 0.01)))) +
-  f(ANO_NASC, model = "rw1")
-
-#Modelo Espacial Estruturado + Não Estruturado + RW Temporal
-form_bym_rw <- cardiopatias_congenitas ~ 
-  IDADEMAE + ESCMAE + CONSULTAS +
-  f(mun_id, model = "bym", graph = g, Z = Z,
-    hyper = list(
-      prec.unstruct = list(prior = "loggamma", param = c(1, 0.01)),
-      prec.spatial = list(prior = "loggamma", param = c(1, 0.01))
-    )) +
-  f(ANO_NASC, model = "rw1")
-
-t1 <- Sys.time()
+data$idhm_c <- scale(data$idhm)
+data$urbanizacao_c <- scale(data$grau_urbanizacao)
+data$renda_dom_c <- scale(data$renda_domiciliar_per_capita)
+data$analfabetismo_c <- scale(data$taxa_de_analfabetismo)
 
 #Mantendo somente variáveis uteis na base
-data2 <- subset(data, select = c("cardiopatias_congenitas", "IDADEMAE", "ESCMAE", "CONSULTAS", 
-                                "ANO", "ANO_NASC", "CODMUNRES", "mun_id"))
+data2 <- subset(data, select = c("defeito_tubo_neural", "microcefalia", "cardiopatias_congenitas", 
+                                 "fendas_orais", "orgaos_genitais", "defeitos_membros", "defeitos_parede_abdominal",
+                                 "sindrome_down","IDADEMAE", "ESCMAE", "CONSULTAS", 
+                                 "ANO_NASC", "CODMUNRES", "mun_id", "idhm_c", 
+                                 "urbanizacao_c", "renda_dom_c", "analfabetismo_c"))
 
-#Todas as fórmulas vão rodar nesse mesmo código:
-modelo_estimado <- inla(
-  form_icar_rw,
-  family = "binomial",
-  data = data2,
-  control.predictor = list(compute = FALSE),  
-  control.compute = list(
-    dic = TRUE,
-    waic = TRUE,
-    return.marginals.predictor = FALSE
-  ),
-  control.fixed = list(mean = 0, prec = 0.001)
+#Amostrando
+set.seed(123)
+casos <- data2[data2$cardiopatias_congenitas == 1, ]
+controles <- data2[data2$cardiopatias_congenitas == 0, ]
+n_controles_amostra <- min(nrow(casos) * 20, nrow(controles))
+controles_amostra <- controles[sample(1:nrow(controles), n_controles_amostra), ]
+data_amostra <- rbind(casos, controles_amostra)
+
+# Variáveis individuais por anomalia
+vars_individuais <- list(
+  defeito_tubo_neural      = c("IDADEMAE", "ESCMAE", "CONSULTAS"),
+  microcefalia             = c("IDADEMAE", "ESCMAE", "CONSULTAS"),
+  cardiopatias_congenitas  = c("IDADEMAE", "ESCMAE", "CONSULTAS"),
+  fendas_orais             = c("IDADEMAE", "ESCMAE", "CONSULTAS"),
+  orgaos_genitais          = c("IDADEMAE", "ESCMAE", "CONSULTAS"),
+  defeitos_membros         = c("IDADEMAE", "ESCMAE", "CONSULTAS"),
+  defeitos_parede_abdominal= c("IDADEMAE", "ESCMAE", "CONSULTAS"),
+  sindrome_down            = c("IDADEMAE", "ESCMAE", "CONSULTAS")
 )
 
-t2 <- Sys.time()
-t2 - t1
+# Variáveis municipais — fixas para todas as anomalias
+vars_municipais <- c("idhm_c", "urbanizacao_c", "renda_dom_c", "analfabetismo_c")
 
-# Resultados
-summary(modelo_estimado)
-saveRDS(modelo_hier, "data/modelo_hier.rds")
-modelo_hier2 <- readRDS("data/modelo_hier.rds")
-rm(modelo_hier2)
-fixed_effects <- modelo_hier$summary.fixed
-fixed_effects$variavel <- rownames(fixed_effects)
+build_formula <- function(anomalia, vars_ind, modelo_tipo, g) {
+  
+  resp <- anomalia
+  
+  # Preditores fixos: individuais + municipais
+  fixos_ind  <- paste(vars_ind, collapse = " + ")
+  fixos_mun  <- paste(vars_municipais, collapse = " + ")
+  
+  # Parte temporal: factor() nos modelos sem RW, f(rw1) nos modelos com RW
+  temporal_fator <- "factor(ANO_NASC)"
+  temporal_rw    <- "f(ANO_NASC, model = \"rw1\")"
+  
+  # Hiperparâmetros
+  hyper_iid   <- "hyper = list(prec = list(prior = \"loggamma\", param = c(1, 0.01)))"
+  hyper_besag <- "hyper = list(prec = list(prior = \"loggamma\", param = c(1, 0.01)))"
+  hyper_bym   <- "hyper = list(
+                    prec.unstruct = list(prior = \"loggamma\", param = c(1, 0.01)),
+                    prec.spatial  = list(prior = \"loggamma\", param = c(1, 0.01)))"
+  
+  efeito_espacial <- switch(modelo_tipo,
+                            "iid"     = sprintf("f(mun_id, model = \"iid\", %s)", hyper_iid),
+                            "icar"    = sprintf("f(mun_id, model = \"besag\", graph = g, %s)", hyper_besag),
+                            "bym"     = sprintf("f(mun_id, model = \"bym\",  graph = g, %s)", hyper_bym),
+                            "icar_rw" = sprintf("f(mun_id, model = \"besag\", graph = g, %s)", hyper_besag),
+                            "bym_rw"  = sprintf("f(mun_id, model = \"bym\",  graph = g, %s)", hyper_bym)
+  )
+  
+  temporal <- if (modelo_tipo %in% c("icar_rw", "bym_rw")) temporal_rw else temporal_fator
+  
+  formula_str <- sprintf(
+    "%s ~ %s + %s + %s + %s",
+    resp, fixos_ind, fixos_mun, temporal, efeito_espacial
+  )
+  
+  as.formula(formula_str)
+}
 
-# Calcular OR e IC
-fixed_effects$OR <- exp(fixed_effects$mean)
-fixed_effects$IC_2.5 <- exp(fixed_effects$`0.025quant`)
-fixed_effects$IC_97.5 <- exp(fixed_effects$`0.975quant`)
+rodar_todos_modelos <- function(data, g, vars_individuais, output_dir = "resultados/modelos") {
+  
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  anomalias   <- names(vars_individuais)
+  tipos_modelo <- c("iid", "icar", "bym", "icar_rw", "bym_rw")
+  
+  # Log de progresso
+  total     <- length(anomalias) * length(tipos_modelo)
+  contador  <- 0
+  erros     <- list()
+  
+  for (anomalia in anomalias) {
+    
+    vars_ind <- vars_individuais[[anomalia]]
+    
+    # Preparar variável resposta para esta anomalia
+    data$y_resp <- as.numeric(data[[anomalia]])
+    
+    for (tipo in tipos_modelo) {
+      
+      contador <- contador + 1
+      nome_arquivo <- file.path(output_dir, sprintf("%s_%s.RDS", anomalia, tipo))
+      
+      # Pular se já foi rodado (útil para retomar após interrupção)
+      if (file.exists(nome_arquivo)) {
+        message(sprintf("[%d/%d] Já existe, pulando: %s | %s", contador, total, anomalia, tipo))
+        next
+      }
+      
+      message(sprintf("[%d/%d] Rodando: %s | %s  (%s)", 
+                      contador, total, anomalia, tipo, Sys.time()))
+      
+      tryCatch({
+        
+        formula <- build_formula(anomalia = "y_resp",
+                                 vars_ind  = vars_ind,
+                                 modelo_tipo = tipo,
+                                 g = g)
+        
+        modelo <- inla(
+          formula,
+          family = "binomial",
+          data   = data,
+          control.predictor = list(compute = FALSE),
+          control.compute   = list(
+            dic  = TRUE,
+            waic = TRUE,
+            return.marginals.predictor = FALSE
+          ),
+          control.fixed = list(mean = 0, prec = 0.001)
+        )
+        
+        # Salvar e liberar memória imediatamente
+        saveRDS(modelo, file = nome_arquivo)
+        message(sprintf("    ✔ Salvo em: %s", nome_arquivo))
+        
+        rm(modelo)
+        gc()
+        
+      }, error = function(e) {
+        msg <- sprintf("    ✘ ERRO em %s | %s: %s", anomalia, tipo, e$message)
+        message(msg)
+        erros[[length(erros) + 1]] <<- list(anomalia = anomalia, tipo = tipo, erro = e$message)
+      })
+    }
+  }
+  
+  # Relatório final
+  message("\n── Concluído ──────────────────────────────")
+  message(sprintf("Total rodado : %d / %d", contador - length(erros), total))
+  
+  if (length(erros) > 0) {
+    message("Modelos com erro:")
+    for (e in erros) {
+      message(sprintf("  - %s | %s : %s", e$anomalia, e$tipo, e$erro))
+    }
+  }
+  
+  invisible(erros)  # retorna lista de erros para inspeção
+}
 
-# Adicionar indicador de significância
-fixed_effects$significativo <- ifelse(
-  fixed_effects$`0.025quant` > 0 | fixed_effects$`0.975quant` < 0, 
-  "*", ""
+# ─────────────────────────────────────────────
+# Chamada
+# ─────────────────────────────────────────────
+erros <- rodar_todos_modelos(
+  data            = data_amostra,        # sua base já tratada
+  g               = g,            # grafo INLA
+  vars_individuais = vars_individuais,
+  output_dir      = "data/resultados"
 )
-
-# Criar tabela final
-tabela_resultados <- fixed_effects[, c("variavel", "mean", "OR", "IC_2.5", "IC_97.5", "significativo")]
-tabela_resultados$IC_texto <- paste0("(", round(tabela_resultados$IC_2.5, 3), 
-                                     ", ", round(tabela_resultados$IC_97.5, 3), ")")
-
-print(tabela_resultados)
-
-#Forest Plot
-vars_interesse <- tabela_resultados[!grepl("Intercept|factor", tabela_resultados$variavel), ]
-
-ggplot(vars_interesse, aes(x = OR, y = reorder(variavel, OR))) +
-  geom_point(size = 3) +
-  geom_errorbarh(aes(xmin = IC_2.5, xmax = IC_97.5), height = 0.2) +
-  geom_vline(xintercept = 1, linetype = "dashed", color = "red", linewidth = 0.8) +
-  scale_x_log10() +
-  theme_minimal() +
-  labs(x = "Odds Ratio (escala log)", 
-       y = "", 
-       title = "Efeito das Covariáveis sobre Cardiopatias Congênitas",
-       subtitle = "Modelo Hierárquico Espacial - INLA")
-
-# Mapa Efeito Espacial
-# Efeitos aleatórios do besag
-efeitos_mun <- modelo_hier$summary.random$mun_id
-
-# Converter para Risco Relativo (exponenciar)
-efeitos_mun$RR <- exp(efeitos_mun$mean)
-efeitos_mun$RR_2.5 <- exp(efeitos_mun$`0.025quant`)
-efeitos_mun$RR_97.5 <- exp(efeitos_mun$`0.975quant`)
-
-pr_shape <- readRDS('light_data/municipal.rds')
-pr_shape$mun_id <- as.numeric(as.factor(pr_shape$CC_2))
-
-#Unir shapefile
-correspondencia <- unique(data[, c("CODMUNRES", "mun_id")])
-correspondencia <- correspondencia[order(correspondencia$mun_id), ]
-
-pr_shape <- merge(pr_shape, correspondencia, 
-                  by.x = "CC_2", by.y = "CODMUNRES",
-                  all.x = TRUE)
-
-pr_shape <- merge(pr_shape, efeitos_mun[, c("ID", "RR", "RR_2.5", "RR_97.5")],
-                  by.x = "mun_id.x", by.y = "ID")
-
-#Mapa
-ggplot(data = pr_shape) +
-  geom_sf(aes(fill = RR)) +
-  scale_fill_gradient2(
-    low = "blue", mid = "white", high = "red",
-    midpoint = 1, name = "Risco Relativo"
-  ) +
-  theme_minimal() +
-  labs(title = "Risco Relativo de Cardiopatias Congênitas por Município",
-       subtitle = "Modelo Hierárquico Espacial - INLA")
-
-# Identificar municípios com efeito significativo
-pr_shape$efeito_sig <- with(pr_shape, 
-                            ifelse(RR_2.5 > 1, "Aumento de Risco",
-                                   ifelse(RR_97.5 < 1, "Redução de Risco", 
-                                          "Não Significativo")))
-
-# Mapa com significância
-ggplot(data = pr_shape) +
-  geom_sf(aes(fill = efeito_sig)) +
-  scale_fill_manual(
-    values = c("Aumento de Risco" = "red",
-               "Redução de Risco" = "blue",
-               "Não Significativo" = "grey80"),
-    name = "Efeito"
-  ) +
-  theme_minimal() +
-  labs(title = "Significância do Efeito Espacial",
-       subtitle = "Intervalo de Credibilidade 95%")
-
-# Modelo Mais Complexo (Trava)
-formula_hier2 <- cardiopatias_congenitas ~ 
-  IDADEMAE + ESCMAE + CONSULTAS + # Covariáveis individuais
-  idhm + # Covariáveis municipais
-  f(mun_id, model = "besag", graph = g) + # Efeito espacial estruturado (ICAR)
-  f(mun_id2, model = "iid") + # Efeito não-espacial (iid)
-  f(ANO_NASC, model = "rw1") # Tendência temporal
